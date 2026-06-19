@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Volunteer Dashboard – Thuvakkam</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 240px; min-height: 100vh;
+      background: linear-gradient(160deg, #2d6a4f, #40916c);
+      color: #fff; position: fixed; top: 0; left: 0;
+      padding: 32px 20px; display: flex; flex-direction: column; gap: 6px;
+      box-shadow: 3px 0 12px rgba(0,0,0,0.15);
+    }
+    .sidebar .vol-name {
+      font-size: 1rem; font-weight: 600;
+      margin-bottom: 28px; padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.25); color: #b7e4c7;
+    }
+    .sidebar a {
+      display: flex; align-items: center; gap: 10px;
+      color: rgba(255,255,255,0.85); text-decoration: none;
+      padding: 10px 14px; border-radius: 8px; font-size: 0.95rem;
+      transition: background 0.2s, color 0.2s;
+    }
+    .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.18); color: #fff; }
+    .sidebar .icon { font-size: 1.1rem; width: 20px; text-align: center; }
+    .sidebar .logout { margin-top: auto; color: #ffb3b3; }
+    .sidebar .logout:hover { background: rgba(255,100,100,0.2); color: #ff6b6b; }
+
+    /* ── Content ─────────────────────────────────────────────────────────── */
+    .content { margin-left: 240px; padding: 40px; flex: 1; max-width: 900px; }
+    .page-title { font-size: 1.5rem; font-weight: 700; color: #1b4332; margin-bottom: 28px; }
+
+    .card {
+      background: #fff; border-radius: 14px; padding: 28px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07); margin-bottom: 24px;
+    }
+    .card h3 {
+      font-size: 1.05rem; font-weight: 600; color: #1b4332;
+      margin-bottom: 20px; padding-bottom: 12px;
+      border-bottom: 2px solid #d8f3dc;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── Profile card ────────────────────────────────────────────────────── */
+    .profile-grid { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
+    .avatar-wrap { position: relative; flex-shrink: 0; }
+    .avatar {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: linear-gradient(135deg, #40916c, #74c69d);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.2rem; color: #fff; font-weight: 700; overflow: hidden;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .pfp-label {
+      position: absolute; bottom: 0; right: 0;
+      background: #40916c; border-radius: 50%;
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 0.75rem; border: 2px solid #fff;
+    }
+    .profile-info p { color: #444; margin: 5px 0; font-size: 0.95rem; }
+    .profile-info strong { color: #1b4332; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 20px; }
+    .stat-card {
+      background: #f0faf4; border-radius: 10px;
+      padding: 16px 20px; border-left: 4px solid #40916c;
+    }
+    .stat-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .stat-value { font-size: 1.6rem; font-weight: 700; color: #1b4332; }
+
+    /* progress bar */
+    .progress-wrap { margin-top: 20px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.82rem; color: #555; margin-bottom: 6px; }
+    .progress-bar { height: 10px; background: #e0f2e9; border-radius: 99px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #40916c, #74c69d); border-radius: 99px; transition: width 0.6s ease; }
+
+    /* ── Achievements ────────────────────────────────────────────────────── */
+    .ach-section { margin-bottom: 28px; }
+    .ach-section-title {
+      font-size: 0.8rem; font-weight: 700; color: #40916c;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 12px; padding: 4px 0; border-bottom: 1px dashed #d8f3dc;
+    }
+    .badges { display: flex; flex-wrap: wrap; gap: 12px; }
+    .badge {
+      background: linear-gradient(135deg, #d8f3dc, #b7e4c7);
+      border: 1px solid #95d5b2; border-radius: 20px;
+      padding: 10px 20px; font-size: 0.88rem; font-weight: 600; color: #1b4332;
+      display: flex; align-items: center; gap: 8px; transition: transform 0.15s;
+    }
+    .badge:hover { transform: translateY(-2px); }
+    .badge-locked { background: #f0f0f0; border: 1px solid #ddd; color: #aaa; }
+    .badge-progress { font-size: 0.75rem; color: #888; margin-top: 4px; }
+    .badge-wrap { display: flex; flex-direction: column; }
+
+    /* ── Events / Google Form ────────────────────────────────────────────── */
+    .events-intro {
+      color: #444; font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;
+    }
+    .events-intro a { color: #40916c; font-weight: 600; }
+    .gform-wrap {
+      border: 1.5px solid #d8f3dc; border-radius: 10px; overflow: hidden;
+    }
+    .gform-wrap iframe { display: block; width: 100%; border: none; }
+    .events-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .btn {
+      display: inline-block; background: #40916c; color: #fff;
+      border: none; padding: 10px 22px; border-radius: 8px;
+      font-size: 0.92rem; cursor: pointer; font-weight: 600;
+      text-decoration: none; transition: background 0.2s;
+    }
+    .btn:hover { background: #2d6a4f; }
+    .btn-outline {
+      display: inline-block; background: transparent; color: #40916c;
+      border: 1.5px solid #40916c; padding: 10px 22px; border-radius: 8px;
+      font-size: 0.92rem; font-weight: 600; text-decoration: none; transition: all 0.2s;
+    }
+    .btn-outline:hover { background: #40916c; color: #fff; }
+
+    /* ── Flash message ───────────────────────────────────────────────────── */
+    .flash {
+      background: #d1e7dd; color: #0f5132;
+      border: 1px solid #a3cfbb; border-radius: 8px;
+      padding: 12px 18px; margin-bottom: 20px; font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="vol-name">👋 {{.Volunteer.Name}}</div>
+  <a href="/profile"      {{if eq .Section "profile"}}      class="active"{{end}}><span class="icon">👤</span> My Profile</a>
+  <a href="/achievements" {{if eq .Section "achievements"}} class="active"{{end}}><span class="icon">🏅</span> Achievements</a>
+  <a href="/events"       {{if eq .Section "events"}}       class="active"{{end}}><span class="icon">📅</span> Events</a>
+  <a href="/feedback"     {{if eq .Section "feedback"}}     class="active"{{end}}><span class="icon">💬</span> Feedback</a>
+  <a href="/logout" class="logout"><span class="icon">🚪</span> Logout</a>
+</nav>
+
+<main class="content">
+
+  {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
+
+  {{/* ══════════════ PROFILE ══════════════ */}}
+  {{if eq .Section "profile"}}
+  <div class="page-title">My Profile</div>
+  <div class="card">
+    <div class="profile-grid">
+      <div class="avatar-wrap">
+        <div class="avatar">
+          {{if .Volunteer.ProfilePic}}
+            <img src="{{.Volunteer.ProfilePic}}" alt="Profile pic">
+          {{else}}
+            {{printf "%.1s" .Volunteer.Name}}
+          {{end}}
+        </div>
+        <form action="/upload-pfp" method="post" enctype="multipart/form-data">
+          <label class="pfp-label" title="Change photo">
+            📷
+            <input type="file" name="profile_pic" accept="image/*"
+                   onchange="this.form.submit()" style="display:none;">
+          </label>
+        </form>
+      </div>
+      <div class="profile-info">
+        <p><strong>Name:</strong> {{.Volunteer.Name}}</p>
+        <p><strong>Email:</strong> {{.Volunteer.Email}}</p>
+        <p><strong>Volunteer ID:</strong> #{{.Volunteer.ID}}</p>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Hours</div>
+        <div class="stat-value">{{.Volunteer.Hours}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Next Milestone</div>
+        <div class="stat-value">
+          {{if lt .Volunteer.Hours 35}}35 hrs
+          {{else if lt .Volunteer.Hours 100}}100 hrs
+          {{else if lt .Volunteer.Hours 200}}200 hrs
+          {{else}}Legend 🏆{{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      {{if lt .Volunteer.Hours 35}}
+        <div class="progress-label"><span>Progress to 35-Hour Trailblazer</span><span>{{.Volunteer.Hours}}/35</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:{{pct .Volunteer.Hours 35}}%"></div></div>
+      {{else if lt .Volunteer.Hours 100}}
+        <div class="progress-label"><span>Progress to Century Volunteer</span><span>{{.Volunteer.Hours}}/100</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:{{pct .Volunteer.Hours 100}}%"></div></div>
+      {{else if lt .Volunteer.Hours 200}}
+        <div class="progress-label"><span>Progress to 200-Hour Legend</span><span>{{.Volunteer.Hours}}/200</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:{{pct .Volunteer.Hours 200}}%"></div></div>
+      {{else}}
+        <div class="progress-label"><span>🏆 Legend status reached!</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
+  {{/* ══════════════ ACHIEVEMENTS ══════════════ */}}
+  {{if eq .Section "achievements"}}
+  <div class="page-title">Achievements</div>
+
+  <div class="card">
+    <h3>🎖️ Participation Milestones</h3>
+
+    <div class="ach-section">
+      <div class="ach-section-title">Getting Started</div>
+      <div class="badges">
+        <div class="badge-wrap"><div class="badge">🌟 First Step</div></div>
+
+        {{if ge .Volunteer.Hours 25}}
+          <div class="badge-wrap"><div class="badge">🌿 Quarter Century</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 Quarter Century</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/25 hours</div>
+          </div>
+        {{end}}
+
+        {{if ge .Volunteer.Hours 35}}
+          <div class="badge-wrap"><div class="badge">🔥 35-Hour Trailblazer</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 35-Hour Trailblazer</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/35 hours</div>
+          </div>
+        {{end}}
+
+        {{if ge .Volunteer.Hours 50}}
+          <div class="badge-wrap"><div class="badge">🚀 50-Hour Hero</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 50-Hour Hero</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/50 hours</div>
+          </div>
+        {{end}}
+      </div>
+    </div>
+
+    <div class="ach-section">
+      <div class="ach-section-title">Elite Volunteers</div>
+      <div class="badges">
+        {{if ge .Volunteer.Hours 75}}
+          <div class="badge-wrap"><div class="badge">💎 Diamond Volunteer</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 Diamond Volunteer</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/75 hours</div>
+          </div>
+        {{end}}
+
+        {{if ge .Volunteer.Hours 100}}
+          <div class="badge-wrap"><div class="badge">💯 Century Volunteer</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 Century Volunteer</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/100 hours</div>
+          </div>
+        {{end}}
+
+        {{if ge .Volunteer.Hours 200}}
+          <div class="badge-wrap"><div class="badge">🏆 200-Hour Legend</div></div>
+        {{else}}
+          <div class="badge-wrap">
+            <div class="badge badge-locked">🔒 200-Hour Legend</div>
+            <div class="badge-progress">{{.Volunteer.Hours}}/200 hours</div>
+          </div>
+        {{end}}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📚 Education & Skills</h3>
+    <div class="ach-section">
+      <div class="ach-section-title">Teaching & Tutoring</div>
+      <div class="badges">
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 First Tutoring Session</div><div class="badge-progress">Complete your first tutoring session</div></div>
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 10 Students Taught</div><div class="badge-progress">Teach 10 students</div></div>
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 Literacy Champion</div><div class="badge-progress">Help a student achieve reading fluency</div></div>
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 Math Mentor</div><div class="badge-progress">Complete 5 math tutoring sessions</div></div>
+      </div>
+    </div>
+    <div class="ach-section">
+      <div class="ach-section-title">Community Impact</div>
+      <div class="badges">
+        <div class="badge">🌱 Green Champion</div>
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 Event Organiser</div><div class="badge-progress">Co-organise a Thuvakkam event</div></div>
+        <div class="badge-wrap"><div class="badge badge-locked">🔒 Feedback Champion</div><div class="badge-progress">Submit feedback after every event</div></div>
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  {{/* ══════════════ EVENTS ══════════════ */}}
+  {{if eq .Section "events"}}
+  <div class="page-title">Events</div>
+
+  <div class="card">
+    <h3>📅 Upcoming Events</h3>
+    <p class="events-intro">
+      View all upcoming Thuvakkam events on the official website, then use the form below
+      to log your attendance and hours after participating.
+    </p>
+    <div class="events-links">
+      <a href="https://thuvakkam.org/events/" target="_blank" class="btn">View Events on thuvakkam.org ↗</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>✍️ Log Your Volunteer Hours</h3>
+    <p class="events-intro" style="margin-bottom:16px;">
+      Attended an event? Fill in the form below. Your hours will be reviewed and
+      updated in your profile by the Thuvakkam team.
+    </p>
+    <div class="gform-wrap">
+      
+      <iframe
+  src="https://docs.google.com/forms/d/e/1FAIpQLSe4bZ9fm-IFiCb-gyPuKkuRcYOwKDcjn3DiEkX_A5rLeBgcbA/viewform?embedded=true"
+  width="100%"
+  height="1256"
+  frameborder="0"
+  marginheight="0"
+  marginwidth="0"
+  loading="lazy">
+  Loading…
+</iframe>
+    <p style="margin-top:12px;font-size:0.82rem;color:#888;">
+      Hours are updated manually by admins after review. If you have questions, reach out to the Thuvakkam team.
+    </p>
+  </div>
+  {{end}}
+
+  {{/* ══════════════ FEEDBACK ══════════════ */}}
+  {{if eq .Section "feedback"}}
+  <div class="page-title">Feedback</div>
+  <div class="card">
+    <h3>💬 Leave a Review</h3>
+    <p style="margin-bottom:20px;color:#555;line-height:1.6;">
+      Your experience matters. Help others discover the impact Thuvakkam is making
+      by leaving a Google review.
+    </p>
+    <a href="https://g.page/r/Cf0J35JFauaSEAE/review" target="_blank" class="btn">
+      Leave a Google Review →
+    </a>
+  </div>
+  {{end}}
+
+</main>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login and Register page with glassmorphism design">
+    <title>Login / Register</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh; overflow: hidden; position: relative;
+        }
+        body::before {
+            content: ''; position: fixed; inset: 0;
+            background-image: url('imag.jpg');
+            background-size: cover; background-position: center;
+            background-repeat: no-repeat; z-index: -2;
+        }
+        body::after {
+            content: ''; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.35); z-index: -1;
+        }
+
+        .form-container {
+            position: fixed; top: 32px; right: 32px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            padding: 36px 36px 32px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.18);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+            width: 380px; max-width: calc(100vw - 64px);
+            color: #fff;
+            transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.4s ease;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        .form-container:hover {
+            transform: translateY(-6px) scale(1.01);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 40px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.2);
+            border-color: rgba(139,92,246,0.35);
+        }
+        .form-container::before {
+            content: ''; position: absolute; inset: -2px; border-radius: 22px; padding: 2px;
+            background: linear-gradient(270deg, rgba(139,92,246,0.6), rgba(59,130,246,0.6), rgba(236,72,153,0.6), rgba(139,92,246,0.6));
+            background-size: 300% 300%;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            opacity: 0; transition: opacity 0.5s ease;
+            animation: borderMove 4s ease infinite;
+            pointer-events: none; z-index: -1;
+        }
+        .form-container:hover::before { opacity: 1; }
+
+        @keyframes borderMove {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes formFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes floatParticle {
+            0%   { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 1; }
+            100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+        }
+
+        .toggle-pill {
+            position: absolute; top: 14px; right: 14px;
+            display: flex; background: rgba(255,255,255,0.07);
+            border-radius: 999px; padding: 3px; gap: 2px;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        .toggle-pill button {
+            padding: 5px 14px; border: none; border-radius: 999px; cursor: pointer;
+            background: transparent; color: rgba(255,255,255,0.55);
+            font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+            letter-spacing: 0.02em; transition: all 0.25s ease;
+        }
+        .toggle-pill button.active {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: #fff; box-shadow: 0 2px 10px rgba(139,92,246,0.4);
+        }
+        .toggle-pill button:not(.active):hover {
+            color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08);
+        }
+
+        .logo-container { display: flex; justify-content: center; margin-bottom: 18px; margin-top: 4px; }
+        .logo {
+            width: 70px; height: 70px; object-fit: contain; border-radius: 50%;
+            padding: 8px; background: rgba(255,255,255,0.08); backdrop-filter: blur(8px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35); cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+        .logo:hover {
+            transform: scale(1.12) rotate(3deg);
+            box-shadow: 0 12px 30px rgba(139,92,246,0.4);
+            background: rgba(139,92,246,0.15);
+        }
+
+        .form-box { display: none; }
+        .form-box.active { display: block; animation: formFadeIn 0.5s ease-out; }
+
+        h2 {
+            margin-bottom: 24px; text-align: center; font-weight: 700;
+            font-size: 24px; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff, #c4b5fd);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        .input-group label {
+            display: block; margin-bottom: 7px; font-size: 11px; font-weight: 600;
+            color: rgba(255,255,255,0.65); letter-spacing: 0.06em; text-transform: uppercase;
+            transition: color 0.3s ease;
+        }
+        .input-group:hover label { color: rgba(255,255,255,1); }
+
+        /* password wrapper — positions the eye inside the input */
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 42px; }
+        .pw-eye {
+            position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+            cursor: pointer; font-size: 1rem; color: rgba(255,255,255,0.5);
+            user-select: none; transition: color 0.2s;
+            display: flex; align-items: center;
+        }
+        .pw-eye:hover { color: rgba(255,255,255,0.9); }
+
+        .input-group input {
+            width: 100%; padding: 12px 15px;
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 10px;
+            background: rgba(255,255,255,0.08); color: #fff;
+            font-family: 'Inter', sans-serif; font-size: 15px; outline: none;
+            transition: all 0.35s ease;
+        }
+        .input-group input::placeholder { color: rgba(255,255,255,0.4); }
+        .input-group input:hover {
+            border-color: rgba(139,92,246,0.5); background: rgba(255,255,255,0.12);
+            box-shadow: 0 0 16px rgba(139,92,246,0.1);
+        }
+        .input-group input:focus {
+            border-color: rgba(139,92,246,0.8); background: rgba(255,255,255,0.15);
+            box-shadow: 0 0 20px rgba(139,92,246,0.2), 0 0 0 3px rgba(139,92,246,0.1);
+        }
+
+        .submit-btn {
+            width: 100%; padding: 14px; margin-top: 6px;
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            color: #fff; border: none; border-radius: 10px;
+            font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;
+            cursor: pointer; letter-spacing: 0.02em;
+            position: relative; overflow: hidden; transition: all 0.35s ease;
+        }
+        .submit-btn::after {
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .submit-btn:hover::after { left: 100%; }
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #a78bfa, #7c3aed);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(139,92,246,0.4), 0 0 20px rgba(139,92,246,0.15);
+        }
+        .submit-btn:active { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(139,92,246,0.3); }
+
+        .particle {
+            position: fixed; border-radius: 50%;
+            background: rgba(139,92,246,0.3); pointer-events: none; z-index: -1;
+            animation: floatParticle linear infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="particle" style="width:6px;height:6px;left:10%;animation-duration:12s;animation-delay:0s;"></div>
+    <div class="particle" style="width:4px;height:4px;left:25%;animation-duration:16s;animation-delay:2s;"></div>
+    <div class="particle" style="width:8px;height:8px;left:45%;animation-duration:10s;animation-delay:4s;"></div>
+    <div class="particle" style="width:5px;height:5px;left:65%;animation-duration:14s;animation-delay:1s;"></div>
+    <div class="particle" style="width:3px;height:3px;left:80%;animation-duration:18s;animation-delay:3s;"></div>
+    <div class="particle" style="width:7px;height:7px;left:90%;animation-duration:11s;animation-delay:5s;"></div>
+
+    <div class="form-container">
+
+        <div class="toggle-pill">
+            <button id="tab-login" class="active" onclick="show('login-form','tab-login')">Login</button>
+            <button id="tab-register" onclick="show('register-form','tab-register')">Register</button>
+        </div>
+
+        <div class="logo-container">
+            <img src="logo.png" alt="Logo" class="logo">
+        </div>
+
+        <!-- Login -->
+        <div id="login-form" class="form-box active">
+            <h2>Welcome Back, Dear Volunteer</h2>
+            <form action="/login" method="POST">
+                <div class="input-group">
+                    <label for="login-username">Username or Email</label>
+                    <input type="text" id="login-username" name="login-username"
+                           placeholder="Enter your username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <div class="pw-wrap">
+                        <input type="password" id="login-password" name="login-password"
+                               placeholder="Enter your password" required autocomplete="current-password">
+                        <span class="pw-eye" onclick="togglePw('login-password', this)" title="Show/hide password">👁️</span>
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn">Sign In</button>
+            </form>
+        </div>
+
+        <!-- Register -->
+        <div id="register-form" class="form-box">
+            <h2>Create Account</h2>
+            <form action="/register" method="POST">
+                <div class="input-group">
+                    <label for="reg-username">Username</label>
+                    <input type="text" id="reg-username" name="reg-username"
+                           placeholder="Choose a username" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="reg-email">Email Address</label>
+                    <input type="email" id="reg-email" name="reg-email"
+                           placeholder="you@example.com" required autocomplete="email">
+                </div>
+                <div class="input-group">
+                    <label for="reg-password">Password</label>
+                    <div class="pw-wrap">
+                        <input type="password" id="reg-password" name="reg-password"
+                               placeholder="Create a strong password" required autocomplete="new-password">
+                        <span class="pw-eye" onclick="togglePw('reg-password', this)" title="Show/hide password">👁️</span>
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn">Create Account</button>
+            </form>
+        </div>
+
+    </div>
+
+    <script>
+        function show(formId, tabId) {
+            document.querySelectorAll('.form-box').forEach(f => f.classList.remove('active'));
+            document.querySelectorAll('.toggle-pill button').forEach(b => b.classList.remove('active'));
+            document.getElementById(formId).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function togglePw(inputId, eyeEl) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeEl.style.opacity = '1';
+                eyeEl.title = 'Hide password';
+            } else {
+                input.type = 'password';
+                eyeEl.style.opacity = '0.5';
+                eyeEl.title = 'Show password';
+            }
+        }
+    </script>
+
+</body>
+</html>
