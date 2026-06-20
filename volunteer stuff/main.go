@@ -16,12 +16,10 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/tealeg/xlsx"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 )
 
 var db *sql.DB
-
-// ── env ───────────────────────────────────────────────────────────────────────
 
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
@@ -38,28 +36,25 @@ var (
 	smtpFrom = getEnv("SMTP_FROM", "Thuvakkam Volunteers <noreply@thuvakkam.org>")
 )
 
-// ── structs ───────────────────────────────────────────────────────────────────
-
 type Volunteer struct {
 	ID         int
 	Name       string
 	Email      string
+	Mobile     string
 	Hours      int
 	ProfilePic string
 }
 
 type PageData struct {
-	Volunteer  Volunteer
-	Section    string
-	Flash      string
+	Volunteer Volunteer
+	Section   string
+	Flash     string
 }
 
 type AdminPageData struct {
 	Volunteers []Volunteer
 	Flash      string
 }
-
-// ── session ───────────────────────────────────────────────────────────────────
 
 func getSessionEmail(r *http.Request) string {
 	c, err := r.Cookie("vol_email")
@@ -80,8 +75,6 @@ func clearSession(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: "vol_email", Value: "", Path: "/", MaxAge: -1})
 }
 
-// ── volunteer ─────────────────────────────────────────────────────────────────
-
 func getVolunteer(r *http.Request) (Volunteer, error) {
 	email := getSessionEmail(r)
 	if email == "" {
@@ -89,16 +82,14 @@ func getVolunteer(r *http.Request) (Volunteer, error) {
 	}
 	var v Volunteer
 	err := db.QueryRow(
-		"SELECT volunteer_id, name, email, total_hours, COALESCE(profile_pic,'') FROM volunteers WHERE email=?",
+		"SELECT volunteer_id, name, email, COALESCE(mobile,''), total_hours, COALESCE(profile_pic,'') FROM volunteers WHERE email=$1",
 		email,
-	).Scan(&v.ID, &v.Name, &v.Email, &v.Hours, &v.ProfilePic)
+	).Scan(&v.ID, &v.Name, &v.Email, &v.Mobile, &v.Hours, &v.ProfilePic)
 	return v, err
 }
 
 func getAllVolunteers() ([]Volunteer, error) {
-	rows, err := db.Query(
-		"SELECT volunteer_id, name, email, total_hours FROM volunteers ORDER BY total_hours DESC",
-	)
+	rows, err := db.Query("SELECT volunteer_id, name, email, total_hours FROM volunteers ORDER BY total_hours DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +103,6 @@ func getAllVolunteers() ([]Volunteer, error) {
 	return list, nil
 }
 
-// ── admin check ───────────────────────────────────────────────────────────────
-
 func isAdmin(email string) bool {
 	raw := getEnv("ADMIN_EMAILS", "")
 	if raw == "" {
@@ -126,8 +115,6 @@ func isAdmin(email string) bool {
 	}
 	return false
 }
-
-// ── excel builder — shared by email and download ──────────────────────────────
 
 func buildExcel(volunteers []Volunteer) (*xlsx.File, error) {
 	f := xlsx.NewFile()
@@ -153,22 +140,17 @@ func buildExcel(volunteers []Volunteer) (*xlsx.File, error) {
 	return f, nil
 }
 
-// ── send excel email ──────────────────────────────────────────────────────────
-
 func sendExcelEmail() {
 	volunteers, err := getAllVolunteers()
 	if err != nil {
 		log.Println("Weekly email: DB error:", err)
 		return
 	}
-
 	f, err := buildExcel(volunteers)
 	if err != nil {
 		log.Println("Weekly email: excel build error:", err)
 		return
 	}
-
-	// Write excel to buffer
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {
 		log.Println("Weekly email: excel write error:", err)
@@ -176,9 +158,8 @@ func sendExcelEmail() {
 	}
 	xlsxBytes := buf.Bytes()
 
-	// Build MIME email with attachment
 	boundary := "ThuvakkamBoundary42"
-	subject := fmt.Sprintf("📊 Weekly Volunteer Report — %s", time.Now().Format("02 Jan 2006"))
+	subject := fmt.Sprintf("Weekly Volunteer Report — %s", time.Now().Format("02 Jan 2006"))
 
 	var msg bytes.Buffer
 	msg.WriteString("From: " + smtpFrom + "\r\n")
@@ -186,22 +167,16 @@ func sendExcelEmail() {
 	msg.WriteString("Subject: " + subject + "\r\n")
 	msg.WriteString("MIME-Version: 1.0\r\n")
 	msg.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=\"%s\"\r\n\r\n", boundary))
-
-	// Text part
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
 	msg.WriteString(fmt.Sprintf("Hi,\n\nPlease find this week's volunteer hours report attached.\n\nTotal volunteers: %d\n\nRegards,\nThuvakkam Dashboard", len(volunteers)))
 	msg.WriteString("\r\n")
-
-	// Excel attachment
 	msg.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 	msg.WriteString("Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n")
 	msg.WriteString("Content-Transfer-Encoding: base64\r\n")
-	msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"volunteers_%s.xlsx\"\r\n\r\n",
-		time.Now().Format("2006-01-02")))
+	msg.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"volunteers_%s.xlsx\"\r\n\r\n", time.Now().Format("2006-01-02")))
 
-	// base64 encode
-	import64 := func(data []byte) string {
+	b64encode := func(data []byte) string {
 		const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 		var result strings.Builder
 		for i := 0; i < len(data); i += 3 {
@@ -225,8 +200,7 @@ func sendExcelEmail() {
 		}
 		return result.String()
 	}
-
-	msg.WriteString(import64(xlsxBytes))
+	msg.WriteString(b64encode(xlsxBytes))
 	msg.WriteString(fmt.Sprintf("\r\n--%s--\r\n", boundary))
 
 	adminEmail := strings.Split(getEnv("ADMIN_EMAILS", smtpUser), ",")[0]
@@ -238,68 +212,38 @@ func sendExcelEmail() {
 	}
 }
 
-// ── weekly scheduler — Monday 9am IST (3:30 UTC) ─────────────────────────────
-
 func startWeeklyEmailScheduler() {
 	go func() {
 		for {
 			now := time.Now().UTC()
-			// IST = UTC+5:30, so 9am IST = 3:30 UTC
-			// Find next Monday 03:30 UTC
 			daysUntilMonday := (8 - int(now.Weekday())) % 7
 			if daysUntilMonday == 0 && (now.Hour() > 3 || (now.Hour() == 3 && now.Minute() >= 30)) {
 				daysUntilMonday = 7
 			}
 			next := time.Date(now.Year(), now.Month(), now.Day()+daysUntilMonday, 3, 30, 0, 0, time.UTC)
-			waitDuration := next.Sub(now)
-			log.Printf("Next weekly report scheduled in %s (Monday 9am IST)\n", waitDuration.Round(time.Minute))
-			time.Sleep(waitDuration)
+			log.Printf("Next weekly report in %s\n", next.Sub(now).Round(time.Minute))
+			time.Sleep(next.Sub(now))
 			sendExcelEmail()
 		}
 	}()
 }
 
-// ── milestone emails ──────────────────────────────────────────────────────────
-
 func sendMilestoneEmail(to, name string, hours int) {
 	var subject, body string
 	switch hours {
 	case 35:
-		subject = "🎉 Congratulations on 35 Volunteer Hours!"
-		body = fmt.Sprintf(`Dear %s,
-
-What an incredible milestone! You have now clocked 35 volunteer hours with Thuvakkam.
-
-Your efforts are creating real, lasting change in our community. We are grateful to have you as part of our family.
-
-Warm regards,
-Team Thuvakkam`, name)
+		subject = "Congratulations on 35 Volunteer Hours!"
+		body = fmt.Sprintf("Dear %s,\n\nWhat an incredible milestone! You have now clocked 35 volunteer hours with Thuvakkam.\n\nWarm regards,\nTeam Thuvakkam", name)
 	case 100:
-		subject = "🏆 Century Volunteer — 100 Hours of Pure Dedication!"
-		body = fmt.Sprintf(`Dear %s,
-
-We are thrilled to celebrate this extraordinary achievement — 100 volunteer hours!
-
-You are now a Century Volunteer. Your relentless passion inspires every member of our team.
-
-With deep gratitude,
-Team Thuvakkam`, name)
+		subject = "Century Volunteer — 100 Hours of Pure Dedication!"
+		body = fmt.Sprintf("Dear %s,\n\nWe are thrilled to celebrate this extraordinary achievement — 100 volunteer hours!\n\nWith deep gratitude,\nTeam Thuvakkam", name)
 	default:
 		return
 	}
-
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-	msg := []byte("From: " + smtpFrom + "\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"MIME-Version: 1.0\r\n" +
-		"Content-Type: text/plain; charset=UTF-8\r\n\r\n" +
-		body)
-
+	msg := []byte("From: " + smtpFrom + "\r\nTo: " + to + "\r\nSubject: " + subject + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" + body)
 	if err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpUser, []string{to}, msg); err != nil {
 		log.Println("Milestone email error:", err)
-	} else {
-		log.Printf("Milestone email sent to %s (%d hrs)\n", to, hours)
 	}
 }
 
@@ -308,8 +252,6 @@ func checkMilestones(v Volunteer) {
 		go sendMilestoneEmail(v.Email, v.Name, v.Hours)
 	}
 }
-
-// ── templates ─────────────────────────────────────────────────────────────────
 
 func parseTemplate() *template.Template {
 	return template.Must(
@@ -341,8 +283,6 @@ func render(w http.ResponseWriter, data PageData) {
 	}
 }
 
-// ── volunteer handlers ────────────────────────────────────────────────────────
-
 func loginPageHandler(w http.ResponseWriter, r *http.Request) {
 	template.Must(template.ParseFiles("new.html")).Execute(w, nil)
 }
@@ -356,11 +296,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("login-password")
 
 	var dbPassword string
-	err := db.QueryRow("SELECT password FROM volunteers WHERE email=?", email).Scan(&dbPassword)
+	err := db.QueryRow("SELECT password FROM volunteers WHERE email=$1", email).Scan(&dbPassword)
 	if err != nil || password != dbPassword {
 		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
+
 	setSession(w, email)
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -375,13 +316,14 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("reg-password")
 
 	_, err := db.Exec(
-		"INSERT INTO volunteers (name, email, password, total_hours) VALUES (?, ?, ?, 0)",
+		"INSERT INTO volunteers (name, email, password, total_hours) VALUES ($1, $2, $3, 0)",
 		name, email, password,
 	)
 	if err != nil {
 		http.Error(w, "Could not create account (email may already exist): "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	setSession(w, email)
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -457,11 +399,9 @@ func uploadPfpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 	io.Copy(dst, file)
-	db.Exec("UPDATE volunteers SET profile_pic=? WHERE volunteer_id=?", filePath, v.ID)
+	db.Exec("UPDATE volunteers SET profile_pic=$1 WHERE volunteer_id=$2", filePath, v.ID)
 	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
-
-// ── admin handlers ────────────────────────────────────────────────────────────
 
 func adminGuard(w http.ResponseWriter, r *http.Request) (Volunteer, bool) {
 	v, err := getVolunteer(r)
@@ -489,7 +429,6 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	parseAdminTemplate().Execute(w, AdminPageData{Volunteers: volunteers})
 }
 
-// updateHoursHandler — admin updates a volunteer's hours from the admin page
 func updateHoursHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Redirect(w, r, "/admin", http.StatusSeeOther)
@@ -499,7 +438,6 @@ func updateHoursHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
 	volunteerID, err := strconv.Atoi(r.FormValue("volunteer_id"))
 	if err != nil {
 		http.Error(w, "Invalid volunteer ID", http.StatusBadRequest)
@@ -510,29 +448,18 @@ func updateHoursHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid hours value", http.StatusBadRequest)
 		return
 	}
-
-	// Add hours
-	_, err = db.Exec(
-		"UPDATE volunteers SET total_hours = total_hours + ? WHERE volunteer_id = ?",
-		hoursToAdd, volunteerID,
-	)
+	_, err = db.Exec("UPDATE volunteers SET total_hours = total_hours + $1 WHERE volunteer_id = $2", hoursToAdd, volunteerID)
 	if err != nil {
 		http.Error(w, "DB error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// Check milestones for this volunteer
 	var v Volunteer
-	db.QueryRow(
-		"SELECT volunteer_id, name, email, total_hours FROM volunteers WHERE volunteer_id=?",
-		volunteerID,
-	).Scan(&v.ID, &v.Name, &v.Email, &v.Hours)
+	db.QueryRow("SELECT volunteer_id, name, email, total_hours FROM volunteers WHERE volunteer_id=$1", volunteerID).
+		Scan(&v.ID, &v.Name, &v.Email, &v.Hours)
 	checkMilestones(v)
-
 	http.Redirect(w, r, "/admin?flash=updated", http.StatusSeeOther)
 }
 
-// exportExcelHandler — admin only download
 func exportExcelHandler(w http.ResponseWriter, r *http.Request) {
 	_, ok := adminGuard(w, r)
 	if !ok {
@@ -553,7 +480,6 @@ func exportExcelHandler(w http.ResponseWriter, r *http.Request) {
 	f.Write(w)
 }
 
-// sendReportNowHandler — admin triggers the weekly email immediately
 func sendReportNowHandler(w http.ResponseWriter, r *http.Request) {
 	_, ok := adminGuard(w, r)
 	if !ok {
@@ -563,14 +489,12 @@ func sendReportNowHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin?flash=emailed", http.StatusSeeOther)
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
-
 func main() {
 	godotenv.Load()
 
-	dsn := getEnv("DB_DSN", "root:root@tcp(127.0.0.1:3306)/db")
+	dsn := getEnv("DB_DSN", "")
 	var err error
-	db, err = sql.Open("mysql", dsn)
+	db, err = sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -580,16 +504,12 @@ func main() {
 	}
 
 	os.MkdirAll("uploads", os.ModePerm)
-
-	// Start weekly Excel email — every Monday 9am IST
 	startWeeklyEmailScheduler()
 
-	// Static
 	http.HandleFunc("/imag.jpg", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "imag.jpg") })
 	http.HandleFunc("/logo.png", func(w http.ResponseWriter, r *http.Request) { http.ServeFile(w, r, "logo.png") })
 	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
-	// Volunteer routes
 	http.HandleFunc("/", loginPageHandler)
 	http.HandleFunc("/login", loginHandler)
 	http.HandleFunc("/register", registerHandler)
@@ -601,12 +521,12 @@ func main() {
 	http.HandleFunc("/feedback", feedbackHandler)
 	http.HandleFunc("/upload-pfp", uploadPfpHandler)
 
-	// Admin routes
 	http.HandleFunc("/admin", adminHandler)
 	http.HandleFunc("/admin/update-hours", updateHoursHandler)
 	http.HandleFunc("/admin/send-report", sendReportNowHandler)
 	http.HandleFunc("/export-excel", exportExcelHandler)
 
-	fmt.Println("Server running at http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := getEnv("PORT", "8080")
+	fmt.Println("Server running at http://localhost:" + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
